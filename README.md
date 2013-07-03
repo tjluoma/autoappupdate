@@ -24,6 +24,15 @@ The scripts will be named "au-*APPNAME*.sh" where "au" stands for "auto-update" 
 
 [homebrew-cask] is probably a much better solution than what I have made here. These scripts just meant to scratch my particular itch, and I thought it might be helpful to someone else, or perhaps just give them an idea of how they might solve a problem.
 
+## See Also: ##
+
+If you are thinking of using any of these scripts you should start by reading [au-TEMPLATE.mmd] which gives an overview of how the scripts work as well as "guiding principles" behind the project.
+
+
+[au-TEMPLATE.mmd]: https://github.com/tjluoma/autoappupdate/blob/master/au-TEMPLATE.mmd
+
+
+
 
 [homebrew-cask]: https://github.com/phinze/homebrew-cask
 [au-xld]: https://github.com/tjluoma/au-xld
