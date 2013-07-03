@@ -1,0 +1,76 @@
+Title: 	au-TEMPLATE
+Date:	2013-07-03
+
+
+This document is meant to give an overview of what each script in the [autoappupdate] project will do.
+
+The purpose is to explain the "flow" of the scripts, what they do and how they do it.
+
+It will also serve as a reminder for me when I come back to this in 6 months and try to remember the logic behind what I had been doing.
+
+1.	Check the latest version number available on website
+	* Ideally use a [Sparkle] or other RSS feed of versions
+	* If no feed is available, try to come up with a reliable way to find the current version information.
+2. 	Check the installed version of the app
+	* This can usually be found by looking for 'CFBundleShortVersionString' in `/Applications/APPNAME.app/Contents/Info.plist`
+	* If the app is not installed, assume the user wants to install it.
+3.	Compare local vs remote versions
+	*	If same, exit quietly
+	*	If different, assume that the local version is outdated and needs to be updated.
+4.	Download the newest version to ~/Downloads/ (standard folder for downloads in OS X)
+	*	If the file already exists in that folder, it may be: a) the version we want which was already downloaded, b) a partial/interrupted download which can be continued, or c) an old version of the file which we don't want to use. 
+	*	Some apps put the version number in the filename, so it's easy to tell. Others do not. If version information is not in filename, compare byte-count. a) If identical to server, assume it is the current version, b) if it is less than the server, assume it is an interrupted download, c) if larger than the server, assume it is a different version and re-download the file from the server.
+	*	To avoid future confusion, downloaded files will be moved to the trash (~/.Trash/) once they are successfully installed. If the user has further use for the file s/he can retrieve it from the trash and avoid having to re-download the file (i.e. If s/he wants to copy it to another computer which needs to be updated.)
+5.	If the downloaded file was a DMG, mount it.
+6.	If the app is already installed and running, ***we are allowed to tell it to quit.*** 
+	* We will ask it to quit *nicely* by sending the first request using AppleScript via `osascript`. But if that doesn't work, we'll move on to `kill -TERM`. If that doesn't work, ***fail*** and alert the user. 
+	* Try to avoid `kill -9`. There may be an alert window or something that the user really needs to see. We can always try again tomorrow night.
+	* Don't assume the user will be at the keyboard when this script runs, so s/he might not be able to manually quit the app, but it might not hurt to throw up a little Growl notification and give them a chance before we start automatically telling apps to quit, unless we know they are safe to quit anytime. For example, I would have no problem killing off Dropbox because I know it will just pick up wherever it left off. On the other hand, I would worry a bit more about killing off HandBrake  which might be almost done with an encoding process that might have been running for hours.
+	* If we quit a running app, we should restart it again once we have updated it.
+7. If the app is already installed, move it to ~/.Trash/ and rename it so that the version number is in the filename. For example, if I replace Dropbox version 2.3.3 with version 2.3.4, the existing "/Applications/Dropbox.app" will be moved/renamed to "~/.Trash/Dropbox 2.3.3.app" 
+	* That way if the user decides s/he wants to revert to the previous version, s/he can easily identify the previous version in the ~/.Trash/
+	* It also allows for multiple previous versions of the app to be moved to the ~/.Trash/ without overwriting them.
+8.	Use `ditto` to copy apps from .zip files or mounted DMGs to the /Applications/ folder, as it does a good job of preserving links, permissions, etc.
+9.	Once the app is installed, notify the user that a new version has been installed so s/he will know to look for any new issues which may have been introduced.
+10.	If the app was running when we updated it, re-launch it. Otherwise, do not launch it. We are assuming that the user wants her/his apps up-to-date, not that s/he wants them all running.
+11.	If we mounted a DMG, unmount it.
+12.	Move the file that we downloaded to ~/Downloads/ into ~/.Trash/
+
+
+
+## Guiding Principles ##
+
+1.	The primary objective is to make it easy to keep apps updated automatically.
+2.	If something fails, *STOP IMMEDIATELY* and report the error with enough clarity that I'll be able to figure out which part broke.
+3.	Have as little effect as possible on the servers where these apps are stored.
+	* Don't query more often than necessary
+	* Store as much information as possible from each query to avoid hitting the server multiple times. (i.e. When checking three HTTP headers, use `curl --head` once and store the result in a variable and parse it, rather than calling `curl --head` three times.
+4. 	Whenever possible, use only those Unix tools which come standard with Mac OS X. Ideally I would like to be able to sit down at a clean installation, download one of these scripts and have it install the app without needing any other utilities, libraries, dependencies, etc. (That means `curl` not `wget` or `lynx` whenever possible.) 
+5. 	`rm` is dangerous and should be avoided except in extremely rare and unavoidable situations. Move the file to the ~/.Trash/ so the user can recover it if we make a mistake.
+6. 	It is OK to quit a running app, but if we quit it, we should restart it once it has been updated.
+	* This assumption is necessary to be able to automate updates of some apps which run all the time, such as Dropbox or Hazel.
+	* Don't leave unsaved files hanging around all night!
+	* With OS X's 'auto-save' and ability to re-open windows/files, having an app restarted should not present much of an inconvenience.
+	* If there is an app that you would not want quit to be automatically updated, *just don't install and run the script for that app!* Easy as pie.
+
+
+## There are a few provisos, a couple of *quid pro quos*. ##
+
+1. If you have installed preference panes to **/Library/PreferencePanes/** instead of **$HOME/Library/PreferencePanes/** we will probably not be able to update them.
+	* Unless the PreferencePane *must* be installed system-wide, consider moving them to your own PreferencePanes folder.
+	* Run "`sudo chown -R ${LOGNAME} /Library/PreferencePanes/`" to take over ownership of the **/Library/PreferencePanes/** folder. (Obviously you don't want to do this if this is a shared/school/work Mac.)
+	* Add the necessary commands to `/etc/sudoers` to allow for `sudo` to be used without needing a password. Doing this is beyond the scope of this document with one exception (see below)
+
+## pkgs, installer, and /etc/sudoers ##
+
+It will be virtually impossible to install any .pkg files (such as Adobe Flash) unless you add this line to the `/etc/sudoers` file:
+
+		%admin ALL=NOPASSWD: /usr/sbin/installer
+
+That will allow any member of the `admin` group to run `sudo installer` without needing to enter a password.
+
+Assuming that you are the only user of your Mac, just go ahead and add that now. If you'd rather not add that command, or don't know how, or aren't sure, some of these scripts won't work *automatically,* but you can still run them manually and enter your password when prompted.
+
+[autoappupdate]: https://github.com/tjluoma/autoappupdate
+
+[Sparkle]: http://sparkle.andymatuschak.org/
